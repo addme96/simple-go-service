@@ -1,17 +1,38 @@
 package main
 
 import (
-	"io"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/addme96/simple-go-service/simple-service/database"
+	"github.com/addme96/simple-go-service/simple-service/handlers"
+	"github.com/addme96/simple-go-service/simple-service/repositories"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
-func main() {
-	helloHandler := func(w http.ResponseWriter, req *http.Request) {
-		_, _ = io.WriteString(w, "Hello, world!\n")
-	}
+var resourceHandler *handlers.Resource
 
-	http.HandleFunc("/hello", helloHandler)
-	log.Println("Listening for requests at http://localhost:8000/hello")
-	log.Fatal(http.ListenAndServe(":8000", nil))
+func main() {
+	db := database.NewDB()
+	resourceHandler = handlers.NewResource(repositories.NewResource(db))
+	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(60 * time.Second))
+	r.Route("/resources", func(r chi.Router) {
+		r.Get("/", resourceHandler.List)
+		r.Post("/", resourceHandler.Post)
+		r.Route("/{resourceID}", func(r chi.Router) {
+			r.Use(resourceHandler.GetCtx)
+			r.Get("/", resourceHandler.Get)
+			r.Put("/", resourceHandler.Put)
+			r.Delete("/", resourceHandler.Delete)
+		})
+	})
+	log.Println("Listening for requests at http://localhost:8000")
+	log.Fatal(http.ListenAndServe(":8000", r))
 }
