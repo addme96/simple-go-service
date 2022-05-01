@@ -87,10 +87,12 @@ func (r *Resource) List(writer http.ResponseWriter, request *http.Request) {
 	resources, err := r.Repository.ReadAll(request.Context())
 	if err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	bytes, err := json.Marshal(resources)
 	if err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	writer.Write(bytes)
 }

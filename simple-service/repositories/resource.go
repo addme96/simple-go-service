@@ -5,6 +5,7 @@ import (
 
 	"github.com/addme96/simple-go-service/simple-service/database"
 	"github.com/addme96/simple-go-service/simple-service/entities"
+	"github.com/jackc/pgx/v4"
 )
 
 type Resource struct {
@@ -48,10 +49,10 @@ func (r Resource) ReadAll(ctx context.Context) ([]entities.Resource, error) {
 	conn := r.DB.GetConn()
 	defer conn.Close(ctx)
 	rows, err := conn.Query(ctx, "SELECT id, name FROM resources")
-	if err != nil {
+	if err != nil && err != pgx.ErrNoRows {
 		return nil, err
 	}
-	var resources []entities.Resource
+	resources := make([]entities.Resource, 0)
 	for rows.Next() {
 		var resource entities.Resource
 		err = rows.Scan(&resource.ID, &resource.Name)
