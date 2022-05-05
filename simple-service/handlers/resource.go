@@ -102,7 +102,11 @@ func (r *Resource) Put(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	currentResource := request.Context().Value("resource").(*entities.Resource)
+	currentResource, ok := request.Context().Value("resource").(*entities.Resource)
+	if !ok {
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	var newResource entities.Resource
 	bytes, err := io.ReadAll(request.Body)
 	if err != nil {
@@ -120,7 +124,11 @@ func (r *Resource) Put(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (r *Resource) Delete(writer http.ResponseWriter, request *http.Request) {
-	currentResource := request.Context().Value("resource").(*entities.Resource)
+	currentResource, ok := request.Context().Value("resource").(*entities.Resource)
+	if !ok {
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	err := r.Repository.Delete(request.Context(), currentResource.ID)
 	if err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
