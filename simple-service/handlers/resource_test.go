@@ -52,7 +52,7 @@ var _ = Describe("Resource", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 				req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 				req.Header.Set("Content-Type", "application/json")
-				mockRepo.EXPECT().Create(gomock.Any(), r).Times(1).Return(nil)
+				mockRepo.EXPECT().Create(req.Context(), r).Times(1).Return(nil)
 
 				By("acting")
 				handlers.NewResource(mockRepo).Post(w, req)
@@ -91,6 +91,27 @@ var _ = Describe("Resource", func() {
 				Expect(resp).To(BeEmpty())
 			})
 		})
+
+		When("invalid request", func() {
+			It("returns 400 Bad Request", func() {
+				By("arranging")
+				body := []byte("{{{ something invalid")
+				req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+				req.Header.Set("Content-Type", "application/json")
+				mockRepo.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+
+				By("acting")
+				handlers.NewResource(mockRepo).Post(w, req)
+
+				By("asserting")
+				res := w.Result()
+				Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+				defer res.Body.Close()
+				resp, err := io.ReadAll(res.Body)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(resp).To(BeEmpty())
+			})
+		})
 	})
 
 	Context("GetCtx", func() {
@@ -115,9 +136,9 @@ var _ = Describe("Resource", func() {
 					ID:   resourceID,
 					Name: "Resource Name",
 				}
-				mockRepo.EXPECT().Read(gomock.Any(), resourceID).Times(1).Return(expectedResource, nil)
 				routeCtx := prepareRouteCtxWithURLParam("resourceID", strconv.Itoa(resourceID))
 				req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(routeCtx)
+				mockRepo.EXPECT().Read(req.Context(), resourceID).Times(1).Return(expectedResource, nil)
 
 				By("acting")
 				resourceHandler.GetCtx(nextHandler).ServeHTTP(w, req)
@@ -130,9 +151,9 @@ var _ = Describe("Resource", func() {
 			It("returns 404 if resource not found", func() {
 				By("arranging")
 				resourceID := 123
-				mockRepo.EXPECT().Read(gomock.Any(), resourceID).Times(1).Return(nil, pgx.ErrNoRows)
 				routeCtx := prepareRouteCtxWithURLParam("resourceID", strconv.Itoa(resourceID))
 				req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(routeCtx)
+				mockRepo.EXPECT().Read(req.Context(), resourceID).Times(1).Return(nil, pgx.ErrNoRows)
 
 				By("acting")
 				resourceHandler.GetCtx(nextHandler).ServeHTTP(w, req)
@@ -146,9 +167,9 @@ var _ = Describe("Resource", func() {
 		When("invalid request", func() {
 			It("returns 400 when not int", func() {
 				By("arranging")
-				mockRepo.EXPECT().Read(gomock.Any(), gomock.Any()).Times(0)
 				routeCtx := prepareRouteCtxWithURLParam("resourceID", "definitely-not-int")
 				req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(routeCtx)
+				mockRepo.EXPECT().Read(gomock.Any(), gomock.Any()).Times(0)
 
 				By("acting")
 				resourceHandler.GetCtx(nextHandler).ServeHTTP(w, req)
@@ -231,8 +252,8 @@ var _ = Describe("Resource", func() {
 			When("no resources", func() {
 				It("returns empty list", func() {
 					By("arranging")
-					mockRepo.EXPECT().ReadAll(gomock.Any()).Times(1).Return([]entities.Resource{}, nil)
 					req := httptest.NewRequest(http.MethodGet, "/", nil)
+					mockRepo.EXPECT().ReadAll(req.Context()).Times(1).Return([]entities.Resource{}, nil)
 
 					By("acting")
 					handlers.NewResource(mockRepo).List(w, req)
@@ -256,10 +277,10 @@ var _ = Describe("Resource", func() {
 							Name: "Resource 1 Name",
 						},
 					}
-					mockRepo.EXPECT().ReadAll(gomock.Any()).Times(1).Return(resources, nil)
-					req := httptest.NewRequest(http.MethodGet, "/", nil)
 					expectedBody, err := json.Marshal(resources)
 					Expect(err).NotTo(HaveOccurred())
+					req := httptest.NewRequest(http.MethodGet, "/", nil)
+					mockRepo.EXPECT().ReadAll(req.Context()).Times(1).Return(resources, nil)
 
 					By("acting")
 					handlers.NewResource(mockRepo).List(w, req)
@@ -287,10 +308,10 @@ var _ = Describe("Resource", func() {
 							Name: "Resource 2 Name",
 						},
 					}
-					mockRepo.EXPECT().ReadAll(gomock.Any()).Times(1).Return(resources, nil)
-					req := httptest.NewRequest(http.MethodGet, "/", nil)
 					expectedBody, err := json.Marshal(resources)
 					Expect(err).NotTo(HaveOccurred())
+					req := httptest.NewRequest(http.MethodGet, "/", nil)
+					mockRepo.EXPECT().ReadAll(req.Context()).Times(1).Return(resources, nil)
 
 					By("acting")
 					handlers.NewResource(mockRepo).List(w, req)
@@ -307,8 +328,8 @@ var _ = Describe("Resource", func() {
 			When("repository errors", func() {
 				It("returns 500", func() {
 					By("arranging")
-					mockRepo.EXPECT().ReadAll(gomock.Any()).Times(1).Return(nil, fmt.Errorf("error"))
 					req := httptest.NewRequest(http.MethodGet, "/", nil)
+					mockRepo.EXPECT().ReadAll(req.Context()).Times(1).Return(nil, fmt.Errorf("error"))
 
 					By("acting")
 					handlers.NewResource(mockRepo).List(w, req)
@@ -323,13 +344,94 @@ var _ = Describe("Resource", func() {
 				})
 			})
 		})
-		When("invalid request", func() {
-
-		})
 	})
 
 	Context("Put", func() {
+		When("valid request", func() {
+			It("updates the resource", func() {
+				By("arranging")
+				currentResource := entities.Resource{
+					ID:   123,
+					Name: "Resource Name",
+				}
+				ctxWithResource := context.WithValue(context.TODO(), "resource", &currentResource)
+				newResource := entities.Resource{
+					Name: "Resource Name Changed",
+				}
+				body, err := json.Marshal(newResource)
+				Expect(err).ShouldNot(HaveOccurred())
+				req := httptest.NewRequest(http.MethodPut, "/", bytes.NewReader(body)).WithContext(ctxWithResource)
+				req.Header.Set("Content-Type", "application/json")
+				mockRepo.EXPECT().Update(req.Context(), currentResource.ID, newResource).Times(1).Return(nil)
 
+				By("acting")
+				handlers.NewResource(mockRepo).Put(w, req)
+
+				By("asserting")
+				res := w.Result()
+				Expect(res.StatusCode).To(Equal(http.StatusOK))
+				defer res.Body.Close()
+				resp, err := io.ReadAll(res.Body)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(resp).To(BeEmpty())
+			})
+		})
+
+		When("invalid Content-Type", func() {
+			It("returns 400 Bad Request", func() {
+				By("arranging")
+				currentResource := entities.Resource{
+					ID:   123,
+					Name: "Resource Name",
+				}
+				ctxWithResource := context.WithValue(context.TODO(), "resource", &currentResource)
+				newResource := entities.Resource{
+					Name: "Resource Name Changed",
+				}
+				body, err := json.Marshal(newResource)
+				Expect(err).ShouldNot(HaveOccurred())
+				req := httptest.NewRequest(http.MethodPut, "/", bytes.NewReader(body)).WithContext(ctxWithResource)
+				mockRepo.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				By("acting")
+				handlers.NewResource(mockRepo).Put(w, req)
+
+				By("asserting")
+				res := w.Result()
+				Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+				defer res.Body.Close()
+				resp, err := io.ReadAll(res.Body)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(resp).To(BeEmpty())
+			})
+		})
+
+		When("invalid request", func() {
+			It("returns 400 Bad Request", func() {
+				By("arranging")
+				currentResource := entities.Resource{
+					ID:   123,
+					Name: "Resource Name",
+				}
+				ctxWithResource := context.WithValue(context.TODO(), "resource", &currentResource)
+				body := []byte("{{{ something invalid")
+				req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body)).WithContext(ctxWithResource)
+				req.Header.Set("Content-Type", "application/json")
+				mockRepo.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+				By("acting")
+				handlers.NewResource(mockRepo).Put(w, req)
+
+				By("asserting")
+				res := w.Result()
+				Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+				defer res.Body.Close()
+				resp, err := io.ReadAll(res.Body)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(resp).To(BeEmpty())
+			})
+		})
 	})
 
 	Context("Delete", func() {
