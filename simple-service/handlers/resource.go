@@ -74,13 +74,8 @@ func (r *Resource) Get(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	bytes, err := json.Marshal(resource)
-	if err != nil {
-		return
-	}
-	if _, err = writer.Write(bytes); err != nil {
-		return
-	}
+	bytes, _ := json.Marshal(resource)
+	writer.Write(bytes)
 }
 
 func (r *Resource) List(writer http.ResponseWriter, request *http.Request) {
@@ -89,11 +84,7 @@ func (r *Resource) List(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	bytes, err := json.Marshal(resources)
-	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	bytes, _ := json.Marshal(resources)
 	writer.Write(bytes)
 }
 
