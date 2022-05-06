@@ -4,6 +4,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -36,15 +37,15 @@ func (r *Resource) Post(writer http.ResponseWriter, request *http.Request) {
 	var newResource entities.Resource
 	bytes, err := io.ReadAll(request.Body)
 	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if err = json.Unmarshal(bytes, &newResource); err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
+		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err = r.Repository.Create(request.Context(), newResource); err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writer.WriteHeader(http.StatusCreated)
@@ -55,12 +56,12 @@ func (r *Resource) GetCtx(next http.Handler) http.Handler {
 		resourceID := chi.URLParam(request, "resourceID")
 		ID, err := strconv.Atoi(resourceID)
 		if err != nil {
-			writer.WriteHeader(http.StatusBadRequest)
+			http.Error(writer, err.Error(), http.StatusBadRequest)
 			return
 		}
 		resource, err := r.Repository.Read(request.Context(), ID)
 		if err != nil {
-			writer.WriteHeader(http.StatusNotFound)
+			http.Error(writer, err.Error(), http.StatusNotFound)
 			return
 		}
 		ctx := context.WithValue(request.Context(), "resource", resource)
@@ -68,10 +69,12 @@ func (r *Resource) GetCtx(next http.Handler) http.Handler {
 	})
 }
 
+var getFromCtxError = errors.New("failed to read resource from the context")
+
 func (r *Resource) Get(writer http.ResponseWriter, request *http.Request) {
 	resource, ok := request.Context().Value("resource").(*entities.Resource)
 	if !ok {
-		writer.WriteHeader(http.StatusBadRequest)
+		http.Error(writer, getFromCtxError.Error(), http.StatusBadRequest)
 		return
 	}
 	bytes, _ := json.Marshal(resource)
@@ -81,7 +84,7 @@ func (r *Resource) Get(writer http.ResponseWriter, request *http.Request) {
 func (r *Resource) List(writer http.ResponseWriter, request *http.Request) {
 	resources, err := r.Repository.ReadAll(request.Context())
 	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	bytes, _ := json.Marshal(resources)
@@ -90,26 +93,26 @@ func (r *Resource) List(writer http.ResponseWriter, request *http.Request) {
 
 func (r *Resource) Put(writer http.ResponseWriter, request *http.Request) {
 	if request.Header.Get("Content-Type") != "application/json" {
-		writer.WriteHeader(http.StatusBadRequest)
+		http.Error(writer, "invalid Content-Type - should be application/json", http.StatusBadRequest)
 		return
 	}
 	currentResource, ok := request.Context().Value("resource").(*entities.Resource)
 	if !ok {
-		writer.WriteHeader(http.StatusBadRequest)
+		http.Error(writer, getFromCtxError.Error(), http.StatusBadRequest)
 		return
 	}
 	var newResource entities.Resource
 	bytes, err := io.ReadAll(request.Body)
 	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if err = json.Unmarshal(bytes, &newResource); err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
+		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err = r.Repository.Update(request.Context(), currentResource.ID, newResource); err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -117,12 +120,12 @@ func (r *Resource) Put(writer http.ResponseWriter, request *http.Request) {
 func (r *Resource) Delete(writer http.ResponseWriter, request *http.Request) {
 	currentResource, ok := request.Context().Value("resource").(*entities.Resource)
 	if !ok {
-		writer.WriteHeader(http.StatusBadRequest)
+		http.Error(writer, getFromCtxError.Error(), http.StatusBadRequest)
 		return
 	}
 	err := r.Repository.Delete(request.Context(), currentResource.ID)
 	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
