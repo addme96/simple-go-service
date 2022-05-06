@@ -9,15 +9,18 @@ import (
 )
 
 type Resource struct {
-	DB *database.DB
+	db *database.DB
 }
 
 func NewResource(DB *database.DB) *Resource {
-	return &Resource{DB: DB}
+	return &Resource{db: DB}
 }
 
 func (r Resource) Create(ctx context.Context, newResource entities.Resource) error {
-	conn := r.DB.GetConn()
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return err
+	}
 	defer conn.Close(ctx)
 	stDesc, err := conn.Prepare(ctx, "createResource", "INSERT into resources (name) VALUES ($1)")
 	if err != nil {
@@ -31,7 +34,10 @@ func (r Resource) Create(ctx context.Context, newResource entities.Resource) err
 }
 
 func (r Resource) Read(ctx context.Context, id int) (*entities.Resource, error) {
-	conn := r.DB.GetConn()
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	defer conn.Close(ctx)
 	stDesc, err := conn.Prepare(ctx, "readResource", "SELECT id, name FROM resources WHERE id=$1")
 	if err != nil {
@@ -46,7 +52,10 @@ func (r Resource) Read(ctx context.Context, id int) (*entities.Resource, error) 
 }
 
 func (r Resource) ReadAll(ctx context.Context) ([]entities.Resource, error) {
-	conn := r.DB.GetConn()
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	defer conn.Close(ctx)
 	rows, err := conn.Query(ctx, "SELECT id, name FROM resources")
 	if err != nil && err != pgx.ErrNoRows {
@@ -65,7 +74,10 @@ func (r Resource) ReadAll(ctx context.Context) ([]entities.Resource, error) {
 }
 
 func (r Resource) Update(ctx context.Context, id int, newResource entities.Resource) error {
-	conn := r.DB.GetConn()
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return err
+	}
 	defer conn.Close(ctx)
 	stDesc, err := conn.Prepare(ctx, "updateResource", "UPDATE resources SET name = $1 WHERE id=$2")
 	if err != nil {
@@ -79,7 +91,10 @@ func (r Resource) Update(ctx context.Context, id int, newResource entities.Resou
 }
 
 func (r Resource) Delete(ctx context.Context, id int) error {
-	conn := r.DB.GetConn()
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return err
+	}
 	defer conn.Close(ctx)
 	stDesc, err := conn.Prepare(ctx, "deleteResource", "DELETE FROM resources WHERE id=$1")
 	if err != nil {

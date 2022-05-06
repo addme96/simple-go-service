@@ -1,22 +1,29 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/addme96/simple-go-service/simple-service/database"
+	"github.com/addme96/simple-go-service/simple-service/database/adapters"
 	"github.com/addme96/simple-go-service/simple-service/handlers"
 	"github.com/addme96/simple-go-service/simple-service/repositories"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-var resourceHandler *handlers.Resource
-
 func main() {
-	db := database.NewDB()
-	resourceHandler = handlers.NewResource(repositories.NewResource(db))
+	db := database.NewDB(adapters.Pgx{}, fmt.Sprintf(
+		"postgres://%s:%s@%s/%s",
+		os.Getenv("DB_ENDPOINT"),
+		os.Getenv("DB_USERNAME"),
+		os.Getenv("DB_NAME"),
+		os.Getenv("DB_PASSWORD"),
+	))
+	resourceHandler := handlers.NewResource(repositories.NewResource(db))
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
