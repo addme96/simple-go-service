@@ -7,9 +7,9 @@ import (
 	"github.com/addme96/simple-go-service/simple-service/database"
 	"github.com/addme96/simple-go-service/simple-service/database/mocks"
 	"github.com/golang/mock/gomock"
+	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pashagolub/pgxmock"
 )
 
 var _ = Describe("Postgres", func() {
@@ -33,9 +33,7 @@ var _ = Describe("Postgres", func() {
 		When("happy path", func() {
 			It("creates the connection", func() {
 				By("arranging")
-				mockConn, err := pgxmock.NewConn()
-				Expect(err).NotTo(HaveOccurred())
-				mockPgx.EXPECT().Connect(ctx, databaseURL).Times(1).Return(mockConn, nil)
+				mockPgx.EXPECT().Connect(ctx, databaseURL).Times(1).Return(&pgx.Conn{}, nil)
 
 				By("acting")
 				conn, err := db.GetConn(ctx)
@@ -49,14 +47,14 @@ var _ = Describe("Postgres", func() {
 		When("not so happy path", func() {
 			It("creates the connection", func() {
 				By("arranging")
-				mockPgx.EXPECT().Connect(ctx, databaseURL).Times(1).
-					Return(nil, errors.New("some pgx Connect error"))
+				expectedErr := errors.New("some pgx Connect error")
+				mockPgx.EXPECT().Connect(ctx, databaseURL).Times(1).Return(nil, expectedErr)
 
 				By("acting")
 				conn, err := db.GetConn(ctx)
 
 				By("asserting")
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(Equal(expectedErr))
 				Expect(conn).To(BeNil())
 			})
 		})
