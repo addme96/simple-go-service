@@ -22,9 +22,11 @@ import (
 )
 
 var _ = Describe("Resource", func() {
-	var mockCtrl *gomock.Controller
-	var mockRepo *mocks.MockResourceRepository
-	var w *httptest.ResponseRecorder
+	var (
+		mockCtrl *gomock.Controller
+		mockRepo *mocks.MockResourceRepository
+		w        *httptest.ResponseRecorder
+	)
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		mockRepo = mocks.NewMockResourceRepository(mockCtrl)
