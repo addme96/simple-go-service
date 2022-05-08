@@ -1,3 +1,4 @@
+//go:generate mockgen -destination=mocks/db.go -package mocks . DB
 package repositories
 
 import (
@@ -8,12 +9,16 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 
-type Resource struct {
-	db *database.DB
+type DB interface {
+	GetConn(ctx context.Context) (database.PgxConn, error)
 }
 
-func NewResource(DB *database.DB) *Resource {
-	return &Resource{db: DB}
+type Resource struct {
+	db DB
+}
+
+func NewResource(db DB) *Resource {
+	return &Resource{db: db}
 }
 
 func (r Resource) Create(ctx context.Context, newResource entities.Resource) error {
@@ -26,7 +31,7 @@ func (r Resource) Create(ctx context.Context, newResource entities.Resource) err
 	if err != nil {
 		return err
 	}
-	_, err = conn.Query(ctx, stDesc.Name, newResource.Name)
+	_, err = conn.Exec(ctx, stDesc.Name, newResource.Name)
 	if err != nil {
 		return err
 	}

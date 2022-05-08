@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	database "github.com/addme96/simple-go-service/simple-service/database"
 	gomock "github.com/golang/mock/gomock"
+	pgx "github.com/jackc/pgx/v4"
 )
 
 // MockPgx is a mock of Pgx interface.
@@ -36,10 +36,10 @@ func (m *MockPgx) EXPECT() *MockPgxMockRecorder {
 }
 
 // Connect mocks base method.
-func (m *MockPgx) Connect(arg0 context.Context, arg1 string) (database.PgxConn, error) {
+func (m *MockPgx) Connect(arg0 context.Context, arg1 string) (*pgx.Conn, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Connect", arg0, arg1)
-	ret0, _ := ret[0].(database.PgxConn)
+	ret0, _ := ret[0].(*pgx.Conn)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -11,14 +11,18 @@ import (
 )
 
 type Pgx interface {
-	Connect(ctx context.Context, connString string) (PgxConn, error)
+	Connect(ctx context.Context, connString string) (*pgx.Conn, error)
 }
 
+//PgxConn allows using pgxmock in tests
 type PgxConn interface {
-	Prepare(ctx context.Context, name, sql string) (sd *pgconn.StatementDescription, err error)
-	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
-	Close(ctx context.Context) error
+	Begin(context.Context) (pgx.Tx, error)
+	Exec(context.Context, string, ...interface{}) (pgconn.CommandTag, error)
+	QueryRow(context.Context, string, ...interface{}) pgx.Row
+	Query(context.Context, string, ...interface{}) (pgx.Rows, error)
+	Ping(context.Context) error
+	Prepare(context.Context, string, string) (*pgconn.StatementDescription, error)
+	Close(context.Context) error
 }
 
 type DB struct {
