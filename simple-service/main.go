@@ -24,7 +24,7 @@ const (
 )
 
 func main() {
-	db := database.NewDB(adapters.Pgx(pgx.Connect), buildConnectionStringFromEnv())
+	db := database.NewDB(adapters.Pgx(pgx.Connect), getConnectionString())
 	resourceHandler := handlers.NewResource(repositories.NewResource(db))
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -46,22 +46,22 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8000", r))
 }
 
-func buildConnectionStringFromEnv() string {
-	dbEndpoint, ok := os.LookupEnv(envDBEndpoint)
-	if !ok {
-		panic(fmt.Sprintf("required %s is not set", envDBEndpoint))
+func getConnectionString() string {
+	env, err := readAllEnvVars(envDBEndpoint, envDBUsername, envDBName, envDBPassword)
+	if err != nil {
+		panic(err)
 	}
-	dbUsername, ok := os.LookupEnv(envDBUsername)
-	if !ok {
-		panic(fmt.Sprintf("required %s is not set", envDBUsername))
+	return fmt.Sprintf("postgres://%s:%s@%s/%s", env[envDBEndpoint], env[envDBUsername], env[envDBName], env[envDBPassword])
+}
+
+func readAllEnvVars(keys ...string) (map[string]string, error) {
+	env := make(map[string]string, len(keys))
+	for _, name := range keys {
+		value, ok := os.LookupEnv(name)
+		if !ok {
+			return nil, fmt.Errorf("required %s is not set", name)
+		}
+		env[name] = value
 	}
-	dbName, ok := os.LookupEnv(envDBName)
-	if !ok {
-		panic(fmt.Sprintf("required %s is not set", envDBName))
-	}
-	dbPassword, ok := os.LookupEnv(envDBPassword)
-	if !ok {
-		panic(fmt.Sprintf("required %s is not set", envDBPassword))
-	}
-	return fmt.Sprintf("postgres://%s:%s@%s/%s", dbEndpoint, dbUsername, dbName, dbPassword)
+	return env, nil
 }
