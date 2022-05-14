@@ -9,6 +9,7 @@ import (
 	"github.com/addme96/simple-go-service/simple-service/repositories"
 	"github.com/addme96/simple-go-service/simple-service/repositories/mocks"
 	"github.com/golang/mock/gomock"
+	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/pashagolub/pgxmock"
@@ -22,6 +23,8 @@ var _ = Describe("Resource", func() {
 		ctx      context.Context
 		mockConn pgxmock.PgxConnIface
 	)
+
+	expectedErr := errors.New("some error")
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -58,7 +61,6 @@ var _ = Describe("Resource", func() {
 				It("returns error", func() {
 					By("arranging")
 					expectedResource := entities.Resource{ID: 101, Name: "Resource Name"}
-					expectedErr := errors.New("some error")
 					mockDB.EXPECT().GetConn(ctx).Times(1).Return(nil, expectedErr)
 
 					By("acting")
@@ -74,7 +76,6 @@ var _ = Describe("Resource", func() {
 				It("returns error", func() {
 					By("arranging")
 					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
-					expectedErr := errors.New("prepare error")
 					mockConn.ExpectPrepare("createResource", regexp.QuoteMeta(query)).WillReturnError(expectedErr)
 					mockConn.ExpectClose()
 
@@ -92,7 +93,6 @@ var _ = Describe("Resource", func() {
 					By("arranging")
 					expectedResource := entities.Resource{ID: 101, Name: "Resource Name"}
 					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
-					expectedErr := errors.New("exec error")
 					mockConn.ExpectPrepare("createResource", regexp.QuoteMeta(query)).
 						ExpectExec().WithArgs(expectedResource.Name).WillReturnError(expectedErr)
 					mockConn.ExpectClose()
@@ -135,7 +135,6 @@ var _ = Describe("Resource", func() {
 			When("GetConn fails", func() {
 				It("returns error", func() {
 					By("arranging")
-					expectedErr := errors.New("some error")
 					mockDB.EXPECT().GetConn(ctx).Times(1).Return(nil, expectedErr)
 
 					By("acting")
@@ -152,7 +151,6 @@ var _ = Describe("Resource", func() {
 				It("returns error", func() {
 					By("arranging")
 					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
-					expectedErr := errors.New("prepare error")
 					mockConn.ExpectPrepare("readResource", regexp.QuoteMeta(query)).WillReturnError(expectedErr)
 					mockConn.ExpectClose()
 
@@ -171,7 +169,6 @@ var _ = Describe("Resource", func() {
 					By("arranging")
 					resourceID := 101
 					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
-					expectedErr := errors.New("query row error")
 					mockConn.ExpectPrepare("readResource", regexp.QuoteMeta(query)).
 						ExpectQuery().WithArgs(resourceID).WillReturnError(expectedErr)
 					mockConn.ExpectClose()
@@ -189,12 +186,114 @@ var _ = Describe("Resource", func() {
 	})
 
 	Context("ReadAll", func() {
-		Context("happy path", func() {
+		query := "SELECT id, name FROM resources"
 
+		Context("happy path", func() {
+			It("reads one resource", func() {
+				By("arranging")
+				expectedResource := entities.Resource{ID: 101, Name: "Resource Name"}
+				mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+				rows := pgxmock.NewRows([]string{"id", "name"}).AddRow(expectedResource.ID, expectedResource.Name)
+				mockConn.ExpectQuery(regexp.QuoteMeta(query)).WillReturnRows(rows)
+				mockConn.ExpectClose()
+
+				By("acting")
+				res, err := repo.ReadAll(ctx)
+
+				By("asserting")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).To(Equal([]entities.Resource{expectedResource}))
+				Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+			})
+
+			It("reads two resources", func() {
+				By("arranging")
+				expectedResources := []entities.Resource{
+					{ID: 101, Name: "Resource Name 1"},
+					{ID: 102, Name: "Resource Name 2"},
+				}
+				mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+				rows := pgxmock.NewRows([]string{"id", "name"}).
+					AddRow(expectedResources[0].ID, expectedResources[0].Name).
+					AddRow(expectedResources[1].ID, expectedResources[1].Name)
+				mockConn.ExpectQuery(regexp.QuoteMeta(query)).WillReturnRows(rows)
+				mockConn.ExpectClose()
+
+				By("acting")
+				res, err := repo.ReadAll(ctx)
+
+				By("asserting")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).To(Equal(expectedResources))
+				Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+			})
 		})
 
 		Context("not so happy path", func() {
+			When("GetConn fails", func() {
+				It("returns error", func() {
+					By("arranging")
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(nil, expectedErr)
 
+					By("acting")
+					res, err := repo.ReadAll(ctx)
+
+					By("asserting")
+					Expect(err).To(Equal(expectedErr))
+					Expect(res).To(BeNil())
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+			})
+
+			When("Query fails", func() {
+				It("returns error other than pgx.ErrNoRows", func() {
+					By("arranging")
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+					mockConn.ExpectQuery(regexp.QuoteMeta(query)).WillReturnError(expectedErr)
+					mockConn.ExpectClose()
+
+					By("acting")
+					res, err := repo.ReadAll(ctx)
+
+					By("asserting")
+					Expect(err).To(Equal(expectedErr))
+					Expect(res).To(BeNil())
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+
+				It("returns empty slice in case of pgx.ErrNoRows occurrence", func() {
+					By("arranging")
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+					mockConn.ExpectQuery(regexp.QuoteMeta(query)).WillReturnError(pgx.ErrNoRows)
+					mockConn.ExpectClose()
+
+					By("acting")
+					res, err := repo.ReadAll(ctx)
+
+					By("asserting")
+					Expect(err).To(BeNil())
+					Expect(res).To(BeEmpty())
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+
+				It("returns error when scan errors", func() {
+					By("arranging")
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+					expectedResource := entities.Resource{ID: 101, Name: "Resource Name"}
+					rows := pgxmock.NewRows([]string{"id", "name"}).AddRow(expectedResource.ID, expectedResource.Name).
+						RowError(0, expectedErr)
+					mockConn.ExpectQuery(regexp.QuoteMeta(query)).WillReturnRows(rows)
+					mockConn.ExpectClose()
+
+					By("acting")
+					res, err := repo.ReadAll(ctx)
+
+					By("asserting")
+					Expect(err).To(Equal(expectedErr))
+					Expect(res).To(BeNil())
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+			})
 		})
 	})
 

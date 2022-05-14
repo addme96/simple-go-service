@@ -67,6 +67,9 @@ func (r Resource) ReadAll(ctx context.Context) ([]entities.Resource, error) {
 		return nil, err
 	}
 	resources := make([]entities.Resource, 0)
+	if err == pgx.ErrNoRows {
+		return resources, nil
+	}
 	for rows.Next() {
 		var resource entities.Resource
 		err = rows.Scan(&resource.ID, &resource.Name)
