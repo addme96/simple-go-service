@@ -6,12 +6,8 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 
-type Pgx struct{}
+type Pgx func(ctx context.Context, connString string) (*pgx.Conn, error)
 
-func NewPgx() *Pgx {
-	return &Pgx{}
-}
-
-func (p Pgx) Connect(ctx context.Context, connString string) (*pgx.Conn, error) {
-	return pgx.Connect(ctx, connString)
+func (f Pgx) Connect(ctx context.Context, connString string) (*pgx.Conn, error) {
+	return f(ctx, connString)
 }

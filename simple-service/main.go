@@ -13,6 +13,7 @@ import (
 	"github.com/addme96/simple-go-service/simple-service/repositories"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v4"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 )
 
 func main() {
-	db := database.NewDB(adapters.NewPgx(), buildConnectionStringFromEnv())
+	db := database.NewDB(adapters.Pgx(pgx.Connect), buildConnectionStringFromEnv())
 	resourceHandler := handlers.NewResource(repositories.NewResource(db))
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
