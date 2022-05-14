@@ -51,7 +51,12 @@ func getConnectionString() string {
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf("postgres://%s:%s@%s/%s", env[envDBEndpoint], env[envDBUsername], env[envDBName], env[envDBPassword])
+	return fmt.Sprintf("postgres://%s:%s@%s/%s",
+		env[envDBEndpoint],
+		env[envDBUsername],
+		env[envDBName],
+		env[envDBPassword],
+	)
 }
 
 func readAllEnvVars(keys ...string) (map[string]string, error) {
