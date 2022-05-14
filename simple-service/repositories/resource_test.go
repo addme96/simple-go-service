@@ -24,16 +24,15 @@ var _ = Describe("Resource", func() {
 		mockConn pgxmock.PgxConnIface
 	)
 
-	expectedErr := errors.New("some error")
-
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockDB = mocks.NewMockDB(ctrl)
 		repo = repositories.NewResource(mockDB)
 		ctx = context.Background()
 		mockConn, _ = pgxmock.NewConn()
-
 	})
+
+	expectedErr := errors.New("some error")
 
 	Context("Create", func() {
 		query := "INSERT into resources (name) VALUES ($1)"
@@ -60,11 +59,10 @@ var _ = Describe("Resource", func() {
 			When("GetConn fails", func() {
 				It("returns error", func() {
 					By("arranging")
-					expectedResource := entities.Resource{ID: 101, Name: "Resource Name"}
 					mockDB.EXPECT().GetConn(ctx).Times(1).Return(nil, expectedErr)
 
 					By("acting")
-					err := repo.Create(ctx, expectedResource)
+					err := repo.Create(ctx, entities.Resource{})
 
 					By("asserting")
 					Expect(err).To(Equal(expectedErr))
@@ -298,22 +296,152 @@ var _ = Describe("Resource", func() {
 	})
 
 	Context("Update", func() {
+		query := "UPDATE resources SET name = $1 WHERE id=$2"
 		Context("happy path", func() {
+			Context("happy path", func() {
+				It("updates the resource", func() {
+					By("arranging")
+					newResource := entities.Resource{ID: 0, Name: "Resource Name"}
+					currentResourceID := 101
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+					mockConn.ExpectPrepare("updateResource", regexp.QuoteMeta(query)).
+						ExpectExec().WithArgs(newResource.Name, currentResourceID).
+						WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+					mockConn.ExpectClose()
 
+					By("acting")
+					err := repo.Update(ctx, currentResourceID, newResource)
+
+					By("asserting")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+			})
 		})
 
 		Context("not so happy path", func() {
+			When("GetConn fails", func() {
+				It("returns error", func() {
+					By("arranging")
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(nil, expectedErr)
 
+					By("acting")
+					err := repo.Update(ctx, 101, entities.Resource{})
+
+					By("asserting")
+					Expect(err).To(Equal(expectedErr))
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+			})
+
+			When("Prepare fails", func() {
+				It("returns error", func() {
+					By("arranging")
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+					mockConn.ExpectPrepare("updateResource", regexp.QuoteMeta(query)).
+						WillReturnError(expectedErr)
+					mockConn.ExpectClose()
+
+					By("acting")
+					err := repo.Update(ctx, 101, entities.Resource{})
+
+					By("asserting")
+					Expect(err).To(Equal(expectedErr))
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+			})
+
+			When("Exec fails", func() {
+				It("returns error", func() {
+					By("arranging")
+					newResource := entities.Resource{ID: 0, Name: "Resource Name"}
+					currentResourceID := 101
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+					mockConn.ExpectPrepare("updateResource", regexp.QuoteMeta(query)).
+						ExpectExec().WithArgs(newResource.Name, currentResourceID).WillReturnError(expectedErr)
+					mockConn.ExpectClose()
+
+					By("acting")
+					err := repo.Update(ctx, currentResourceID, newResource)
+
+					By("asserting")
+					Expect(err).To(Equal(expectedErr))
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+			})
 		})
 	})
 
 	Context("Delete", func() {
-		Context("happy path", func() {
+		query := "DELETE FROM resources WHERE id=$1"
 
+		Context("happy path", func() {
+			It("deletes the resource", func() {
+				By("arranging")
+				resourceID := 101
+				mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+				mockConn.ExpectPrepare("deleteResource", regexp.QuoteMeta(query)).
+					ExpectExec().WithArgs(resourceID).WillReturnResult(pgxmock.NewResult("DELETE", 1))
+				mockConn.ExpectClose()
+
+				By("acting")
+				err := repo.Delete(ctx, resourceID)
+
+				By("asserting")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+			})
 		})
 
 		Context("not so happy path", func() {
+			When("GetConn fails", func() {
+				It("returns error", func() {
+					By("arranging")
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(nil, expectedErr)
 
+					By("acting")
+					err := repo.Delete(ctx, 101)
+
+					By("asserting")
+					Expect(err).To(Equal(expectedErr))
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+			})
+
+			When("Prepare fails", func() {
+				It("returns error", func() {
+					By("arranging")
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+					mockConn.ExpectPrepare("deleteResource", regexp.QuoteMeta(query)).
+						WillReturnError(expectedErr)
+					mockConn.ExpectClose()
+
+					By("acting")
+					err := repo.Delete(ctx, 101)
+
+					By("asserting")
+					Expect(err).To(Equal(expectedErr))
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+			})
+
+			When("Exec fails", func() {
+				It("returns error", func() {
+					By("arranging")
+					resourceID := 101
+					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+					mockConn.ExpectPrepare("deleteResource", regexp.QuoteMeta(query)).
+						ExpectExec().WithArgs(resourceID).WillReturnError(expectedErr)
+					mockConn.ExpectClose()
+
+					By("acting")
+					err := repo.Delete(ctx, resourceID)
+
+					By("asserting")
+					Expect(err).To(Equal(expectedErr))
+					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
+				})
+			})
 		})
 	})
 })

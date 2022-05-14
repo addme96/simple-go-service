@@ -91,7 +91,7 @@ func (r Resource) Update(ctx context.Context, id int, newResource entities.Resou
 	if err != nil {
 		return err
 	}
-	_, err = conn.Query(ctx, stDesc.Name, newResource.Name, id)
+	_, err = conn.Exec(ctx, stDesc.Name, newResource.Name, id)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (r Resource) Delete(ctx context.Context, id int) error {
 	if err != nil {
 		return err
 	}
-	_, err = conn.Query(ctx, stDesc.Name, id)
+	_, err = conn.Exec(ctx, stDesc.Name, id)
 	if err != nil {
 		return err
 	}
