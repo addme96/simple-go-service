@@ -14,9 +14,11 @@ var _ = Describe("Pgx", func() {
 		It("calls f(ctx, connString)", func() {
 			By("arranging")
 			expectedPgxConn := &pgx.Conn{}
-			adapter := adapters.Pgx(func(ctx context.Context, connString string) (*pgx.Conn, error) {
-				return expectedPgxConn, nil
-			})
+			adapter := adapters.Pgx(
+				func(ctx context.Context, connString string) (*pgx.Conn, error) {
+					return expectedPgxConn, nil
+				},
+			)
 			ctx := context.Background()
 			connString := "connString"
 
