@@ -49,7 +49,7 @@ func (r Resource) Read(ctx context.Context, id int) (*entities.Resource, error) 
 		return nil, err
 	}
 	var resource entities.Resource
-	err = conn.QueryRow(ctx, stDesc.Name, id).Scan(&resource)
+	err = conn.QueryRow(ctx, stDesc.Name, id).Scan(&resource.ID, &resource.Name)
 	if err != nil {
 		return nil, err
 	}
