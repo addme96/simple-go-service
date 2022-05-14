@@ -8,6 +8,10 @@ import (
 
 type Pgx struct{}
 
+func NewPgx() *Pgx {
+	return &Pgx{}
+}
+
 func (p Pgx) Connect(ctx context.Context, connString string) (*pgx.Conn, error) {
 	return pgx.Connect(ctx, connString)
 }
