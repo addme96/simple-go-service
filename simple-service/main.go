@@ -48,8 +48,8 @@ func main() {
 			r.Delete("/", resourceHandler.Delete)
 		})
 	})
-	log.Println("Listening for requests at http://localhost:8000")
-	log.Fatal(http.ListenAndServe(":8000", r))
+	log.Println("Listening for requests at http://localhost:80")
+	log.Fatal(http.ListenAndServe(":80", r))
 }
 
 func getConnectionString() string {
