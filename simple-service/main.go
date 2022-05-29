@@ -52,10 +52,10 @@ func getConnectionString() string {
 		panic(err)
 	}
 	return fmt.Sprintf("postgres://%s:%s@%s/%s",
-		env[envDBEndpoint],
 		env[envDBUsername],
-		env[envDBName],
 		env[envDBPassword],
+		env[envDBEndpoint],
+		env[envDBName],
 	)
 }
 
