@@ -42,3 +42,15 @@ func (p *DB) GetConn(ctx context.Context) (PgxConn, error) {
 	}
 	return conn, nil
 }
+
+func Seed(ctx context.Context, db *DB) error {
+	conn, err := db.GetConn(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS resources (
+id INT GENERATED ALWAYS AS IDENTITY, 
+name varchar
+)`)
+	return err
+}

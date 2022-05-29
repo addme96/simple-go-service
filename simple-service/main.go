@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -25,6 +26,11 @@ const (
 
 func main() {
 	db := database.NewDB(adapters.Pgx(pgx.Connect), getConnectionString())
+	ctx := context.Background()
+
+	if err := database.Seed(ctx, db); err != nil {
+		panic(err)
+	}
 	resourceHandler := handlers.NewResource(repositories.NewResource(db))
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
