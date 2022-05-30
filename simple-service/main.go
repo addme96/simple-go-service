@@ -28,7 +28,7 @@ func main() {
 	db := database.NewDB(adapters.Pgx(pgx.Connect), getConnectionString())
 	ctx := context.Background()
 
-	if err := database.Seed(ctx, db); err != nil {
+	if err := db.Seed(ctx); err != nil {
 		panic(err)
 	}
 	resourceHandler := handlers.NewResource(repositories.NewResource(db))

@@ -11,7 +11,7 @@ import (
 )
 
 type Pgx interface {
-	Connect(ctx context.Context, connString string) (*pgx.Conn, error)
+	Connect(ctx context.Context, connString string) (PgxConn, error)
 }
 
 //PgxConn allows using pgxmock in tests
@@ -43,11 +43,12 @@ func (p *DB) GetConn(ctx context.Context) (PgxConn, error) {
 	return conn, nil
 }
 
-func Seed(ctx context.Context, db *DB) error {
-	conn, err := db.GetConn(ctx)
+func (p *DB) Seed(ctx context.Context) error {
+	conn, err := p.GetConn(ctx)
 	if err != nil {
 		return err
 	}
+	defer conn.Close(ctx)
 	_, err = conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS resources (
 id INT GENERATED ALWAYS AS IDENTITY, 
 name varchar
