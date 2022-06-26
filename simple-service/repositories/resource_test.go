@@ -35,22 +35,25 @@ var _ = Describe("Resource", func() {
 	expectedErr := errors.New("some error")
 
 	Context("Create", func() {
-		query := "INSERT into resources (name) VALUES ($1)"
+		query := "INSERT into resources (name) VALUES ($1) RETURNING id"
 
 		Context("happy path", func() {
 			It("creates the resource", func() {
 				By("arranging")
 				resourceToCreate := entities.Resource{ID: 101, Name: "Resource Name"}
 				mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
+				returningID := 1
+				rows := pgxmock.NewRows([]string{"id"}).AddRow(returningID)
 				mockConn.ExpectPrepare("createResource", regexp.QuoteMeta(query)).
-					ExpectExec().WithArgs(resourceToCreate.Name).WillReturnResult(pgxmock.NewResult("INSERT", 1))
+					ExpectQuery().WithArgs(resourceToCreate.Name).WillReturnRows(rows)
 				mockConn.ExpectClose()
 
 				By("acting")
-				err := repo.Create(ctx, resourceToCreate)
+				id, err := repo.Create(ctx, resourceToCreate)
 
 				By("asserting")
 				Expect(err).NotTo(HaveOccurred())
+				Expect(id).To(Equal(returningID))
 				Expect(mockConn.ExpectationsWereMet()).To(Succeed())
 			})
 		})
@@ -62,10 +65,11 @@ var _ = Describe("Resource", func() {
 					mockDB.EXPECT().GetConn(ctx).Times(1).Return(nil, expectedErr)
 
 					By("acting")
-					err := repo.Create(ctx, entities.Resource{})
+					id, err := repo.Create(ctx, entities.Resource{})
 
 					By("asserting")
 					Expect(err).To(Equal(expectedErr))
+					Expect(id).To(Equal(0))
 					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
 				})
 			})
@@ -78,28 +82,30 @@ var _ = Describe("Resource", func() {
 					mockConn.ExpectClose()
 
 					By("acting")
-					err := repo.Create(ctx, entities.Resource{})
+					id, err := repo.Create(ctx, entities.Resource{})
 
 					By("asserting")
 					Expect(err).To(Equal(expectedErr))
+					Expect(id).To(Equal(0))
 					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
 				})
 			})
 
-			When("Exec fails", func() {
+			When("QueryRow fails", func() {
 				It("returns error", func() {
 					By("arranging")
 					expectedResource := entities.Resource{ID: 101, Name: "Resource Name"}
 					mockDB.EXPECT().GetConn(ctx).Times(1).Return(mockConn, nil)
 					mockConn.ExpectPrepare("createResource", regexp.QuoteMeta(query)).
-						ExpectExec().WithArgs(expectedResource.Name).WillReturnError(expectedErr)
+						ExpectQuery().WithArgs(expectedResource.Name).WillReturnError(expectedErr)
 					mockConn.ExpectClose()
 
 					By("acting")
-					err := repo.Create(ctx, expectedResource)
+					id, err := repo.Create(ctx, expectedResource)
 
 					By("asserting")
 					Expect(err).To(Equal(expectedErr))
+					Expect(id).To(Equal(0))
 					Expect(mockConn.ExpectationsWereMet()).To(Succeed())
 				})
 			})

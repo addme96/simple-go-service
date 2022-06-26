@@ -21,21 +21,22 @@ func NewResource(db DB) *Resource {
 	return &Resource{db: db}
 }
 
-func (r Resource) Create(ctx context.Context, newResource entities.Resource) error {
+func (r Resource) Create(ctx context.Context, newResource entities.Resource) (int, error) {
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer conn.Close(ctx)
-	stDesc, err := conn.Prepare(ctx, "createResource", "INSERT into resources (name) VALUES ($1)")
+	stDesc, err := conn.Prepare(ctx, "createResource", "INSERT into resources (name) VALUES ($1) RETURNING id")
 	if err != nil {
-		return err
+		return 0, err
 	}
-	_, err = conn.Exec(ctx, stDesc.Name, newResource.Name)
-	if err != nil {
-		return err
+	row := conn.QueryRow(ctx, stDesc.Name, newResource.Name)
+	var id int
+	if err = row.Scan(&id); err != nil {
+		return 0, err
 	}
-	return nil
+	return id, nil
 }
 
 func (r Resource) Read(ctx context.Context, id int) (*entities.Resource, error) {

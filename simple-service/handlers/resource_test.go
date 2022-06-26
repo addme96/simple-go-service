@@ -55,7 +55,8 @@ var _ = Describe("Resource", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 				req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 				req.Header.Set("Content-Type", "application/json")
-				mockRepo.EXPECT().Create(req.Context(), r).Times(1).Return(nil)
+				returningID := 1
+				mockRepo.EXPECT().Create(req.Context(), r).Times(1).Return(returningID, nil)
 
 				By("acting")
 				handlers.NewResource(mockRepo).Post(w, req)
@@ -66,7 +67,7 @@ var _ = Describe("Resource", func() {
 				defer res.Body.Close()
 				resp, err := io.ReadAll(res.Body)
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(resp).To(BeEmpty())
+				Expect(string(resp)).To(Equal(fmt.Sprintf(`{"id": %d}`, returningID)))
 			})
 
 			When("repository errors", func() {
@@ -79,7 +80,7 @@ var _ = Describe("Resource", func() {
 					Expect(err).ShouldNot(HaveOccurred())
 					req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 					req.Header.Set("Content-Type", "application/json")
-					mockRepo.EXPECT().Create(req.Context(), r).Times(1).Return(errors.New("some err"))
+					mockRepo.EXPECT().Create(req.Context(), r).Times(1).Return(0, errors.New("some err"))
 
 					By("acting")
 					handlers.NewResource(mockRepo).Post(w, req)

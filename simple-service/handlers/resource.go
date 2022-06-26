@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -14,7 +15,7 @@ import (
 )
 
 type ResourceRepository interface {
-	Create(ctx context.Context, newResource entities.Resource) error
+	Create(ctx context.Context, newResource entities.Resource) (int, error)
 	Read(ctx context.Context, id int) (*entities.Resource, error)
 	ReadAll(ctx context.Context) ([]entities.Resource, error)
 	Update(ctx context.Context, id int, newResource entities.Resource) error
@@ -44,11 +45,14 @@ func (r *Resource) Post(writer http.ResponseWriter, request *http.Request) {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err = r.Repository.Create(request.Context(), newResource); err != nil {
+	var id int
+	if id, err = r.Repository.Create(request.Context(), newResource); err != nil {
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writer.WriteHeader(http.StatusCreated)
+	resp := fmt.Sprintf(`{"id": %d}`, id)
+	writer.Write([]byte(resp))
 }
 
 func (r *Resource) GetCtx(next http.Handler) http.Handler {
